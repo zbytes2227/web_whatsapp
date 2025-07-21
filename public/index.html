@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WhatsApp Automation</title>
+</head>
+<body>
+  <h1>WhatsApp Automation</h1>
+  <button id="show-qr">Get QR Code</button>
+  <div id="qr-container"></div>
+  <div id="status"></div>
+  <div>
+    <label for="numbers">Numbers (one per line):</label><br>
+    <textarea id="numbers" rows="5" placeholder="919876543210"></textarea><br>
+    <label for="message">Message:</label><br>
+    <input type="text" id="message" placeholder="Hello from the API!"><br>
+    <button id="send">Send Message</button>
+  </div>
+  <div id="report"></div>
+  <script>
+    const qrBtn = document.getElementById('show-qr');
+    const qrContainer = document.getElementById('qr-container');
+    const statusEl = document.getElementById('status');
+    const numbersEl = document.getElementById('numbers');
+    const messageEl = document.getElementById('message');
+    const sendBtn = document.getElementById('send');
+    const reportEl = document.getElementById('report');
+
+    // Get QR code
+    qrBtn.addEventListener('click', async () => {
+      const res = await fetch('/api/qr');
+      const data = await res.json();
+      if (data.qr) {
+        qrContainer.innerHTML = `<img src="${data.qr}" alt="QR Code" style="max-width:300px;">`;
+      } else {
+        qrContainer.innerHTML = `<p>${data.error || 'No QR code yet.'}</p>`;
+      }
+    });
+
+    // Check status
+    async function checkStatus() {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+      statusEl.textContent = `Status: ${data.status}`;
+      return data.status === 'ready';
+    }
+    setInterval(checkStatus, 2000);
+    checkStatus();
+
+    // Send message
+    sendBtn.addEventListener('click', async () => {
+      const numbers = numbersEl.value.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+      const message = messageEl.value.trim();
+      if (numbers.length === 0 || !message) {
+        alert('Please enter at least one number and a message.');
+        return;
+      }
+      sendBtn.disabled = true;
+      reportEl.innerHTML = '<p>Sending...</p>';
+      const res = await fetch('/api/send-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numbers, message })
+      });
+      const data = await res.json();
+      reportEl.innerHTML = '';
+      data.report.forEach(item => {
+        const div = document.createElement('div');
+        div.textContent = `${item.number}: ${item.status} (${item.message})`;
+        div.style.color = item.status === 'success' ? 'green' : 'red';
+        reportEl.appendChild(div);
+      });
+      sendBtn.disabled = false;
+    });
+  </script>
+</body>
+</html>
